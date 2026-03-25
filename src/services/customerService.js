@@ -1,33 +1,20 @@
 const prisma = require('../prismaClient');
 
-// Create a new customer + auto-create their loyalty account
-async function createCustomer({ name, email, phone, address }) {
+async function createCustomer({ name, email, phone }) {
   const customer = await prisma.customer.create({
     data: {
-      name,
-      email,
-      phone,
-      address,
-      // Auto-create loyalty account on registration
+      name, email, phone,
       loyaltyAccount: {
-        create: {
-          pointsBalance: 0,
-          tier: 'bronze',
-        }
+        create: { pointsBalance: 0, tier: 'bronze' }
       }
     },
-    include: {
-      loyaltyAccount: true,
-    }
+    include: { loyaltyAccount: true }
   });
-
   return customer;
 }
 
-// Fetch customer by ID — includes their active subscription IDs
-// Used by Order Orchestration to validate a customer before placing an order
 async function getCustomerById(id) {
-  const customer = await prisma.customer.findUnique({
+  return prisma.customer.findUnique({
     where: { id },
     include: {
       subscriptions: {
@@ -35,25 +22,21 @@ async function getCustomerById(id) {
         select: { id: true, planType: true, status: true }
       },
       loyaltyAccount: true,
+      addresses: { where: { isDefault: true } }
     }
   });
-
-  return customer;
 }
 
-// Partial update — only update fields that are provided
 async function updateCustomer(id, data) {
-  // Remove undefined fields so we don't overwrite with null
   const cleanData = Object.fromEntries(
     Object.entries(data).filter(([_, v]) => v !== undefined)
   );
 
-  const customer = await prisma.customer.update({
-    where: { id },
-    data: cleanData,
-  });
+  // Check exists first to return clean 404 instead of Prisma throwing
+  const exists = await prisma.customer.findUnique({ where: { id } });
+  if (!exists) return null;
 
-  return customer;
+  return prisma.customer.update({ where: { id }, data: cleanData });
 }
 
 module.exports = { createCustomer, getCustomerById, updateCustomer };

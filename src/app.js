@@ -7,6 +7,7 @@ app.use(express.json());
 // ── Routes ─────────────────────────────────────────────
 app.use('/customers',      require('./routes/customerRoutes'));
 app.use('/subscriptions',  require('./routes/subscriptionRoutes'));
+app.use('/billing',       require('./routes/billingRoutes'));
 
 // ── Health check ────────────────────────────────────────
 app.get('/health', (req, res) => {

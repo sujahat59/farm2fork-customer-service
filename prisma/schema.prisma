@@ -12,7 +12,6 @@ model Customer {
   name        String
   email       String    @unique
   phone       String?
-  address     String?
   status      String    @default("active")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -26,6 +25,7 @@ model Customer {
 model Subscription {
   id                String    @id @default(uuid())
   customerId        String
+  addressId         String?
   planType          String
   status            String    @default("active")
   deliveryFrequency String    @default("weekly")
@@ -34,7 +34,8 @@ model Subscription {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  customer        Customer        @relation(fields: [customerId], references: [id])
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  address         DeliveryAddress? @relation(fields: [addressId], references: [id])
   billingRecords  BillingRecord[]
 }
 
@@ -62,7 +63,8 @@ model DeliveryAddress {
   isDefault  Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  customer Customer @relation(fields: [customerId], references: [id])
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  subscriptions Subscription[]
 }
 
 model LoyaltyAccount {

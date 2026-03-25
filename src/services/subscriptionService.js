@@ -1,24 +1,17 @@
 const prisma = require('../prismaClient');
+const integrationService = require('./integrationService');
 
-// Calculate next billing date based on delivery frequency
 function getNextBillingDate(frequency) {
   const date = new Date();
-  if (frequency === 'biweekly') {
-    date.setDate(date.getDate() + 14);
-  } else {
-    // default: weekly
-    date.setDate(date.getDate() + 7);
-  }
+  date.setDate(date.getDate() + (frequency === 'biweekly' ? 14 : 7));
   return date;
 }
 
-// Create subscription + auto-create first billing record
+const PLAN_PRICES = { basic: 29.99, standard: 49.99, premium: 79.99 };
+
 async function createSubscription({ customerId, planType, deliveryFrequency, addressId }) {
   const nextBillingDate = getNextBillingDate(deliveryFrequency);
-
-  // Plan prices — in a real system this would come from a config or DB
-  const planPrices = { basic: 29.99, standard: 49.99, premium: 79.99 };
-  const amount = planPrices[planType] || 29.99;
+  const amount = PLAN_PRICES[planType] || 29.99;
 
   const subscription = await prisma.subscription.create({
     data: {
@@ -26,50 +19,76 @@ async function createSubscription({ customerId, planType, deliveryFrequency, add
       planType,
       deliveryFrequency,
       nextBillingDate,
-      // Auto-create first billing record
+      addressId: addressId || null,
       billingRecords: {
-        create: {
-          customerId,
-          amount,
-          status: 'pending',
-        }
+        create: { customerId, amount, status: 'pending' }
       }
     },
-    include: {
-      billingRecords: true,
-    }
+    include: { billingRecords: true, address: true }
   });
 
   return subscription;
 }
 
-// Get subscription by ID — includes customer + delivery address
-// Delivery Execution team calls this to get the drop-off address
+// Used by Delivery Execution — returns subscription + address + customer
 async function getSubscriptionById(id) {
-  const subscription = await prisma.subscription.findUnique({
+  return prisma.subscription.findUnique({
     where: { id },
     include: {
+      address: true,
       customer: {
-        include: {
-          addresses: {
-            where: { isDefault: true }
-          }
-        }
+        select: { id: true, name: true, email: true, phone: true }
       }
     }
   });
-
-  return subscription;
 }
 
-// Update subscription status: active | paused | cancelled
 async function updateSubscriptionStatus(id, status) {
-  const subscription = await prisma.subscription.update({
+  const exists = await prisma.subscription.findUnique({ where: { id } });
+  if (!exists) return null;
+
+  return prisma.subscription.update({ where: { id }, data: { status } });
+}
+
+// Renew a subscription — creates new billing record + triggers order
+async function renewSubscription(id) {
+  const subscription = await prisma.subscription.findUnique({
     where: { id },
-    data: { status },
+    include: { address: true }
   });
 
-  return subscription;
+  if (!subscription) return null;
+  if (subscription.status !== 'active') {
+    throw new Error('Cannot renew a subscription that is not active');
+  }
+
+  const amount = PLAN_PRICES[subscription.planType] || 29.99;
+  const nextBillingDate = getNextBillingDate(subscription.deliveryFrequency);
+
+  // Create new billing record for this cycle
+  const billing = await prisma.billingRecord.create({
+    data: {
+      customerId: subscription.customerId,
+      subscriptionId: subscription.id,
+      amount,
+      status: 'pending',
+    }
+  });
+
+  // Update next billing date
+  await prisma.subscription.update({
+    where: { id },
+    data: { nextBillingDate }
+  });
+
+  // Trigger order with Order Orchestration
+  const order = await integrationService.createOrder({
+    customerId: subscription.customerId,
+    subscriptionId: subscription.id,
+    deliveryAddressId: subscription.addressId,
+  });
+
+  return { subscription, billing, order };
 }
 
-module.exports = { createSubscription, getSubscriptionById, updateSubscriptionStatus };
+module.exports = { createSubscription, getSubscriptionById, updateSubscriptionStatus, renewSubscription };

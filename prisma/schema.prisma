@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id          String    @id @default(uuid())
+  name        String
+  email       String    @unique
+  phone       String?
+  address     String?
+  status      String    @default("active")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  subscriptions   Subscription[]
+  billingRecords  BillingRecord[]
+  addresses       DeliveryAddress[]
+  loyaltyAccount  LoyaltyAccount?
+}
+
+model Subscription {
+  id                String    @id @default(uuid())
+  customerId        String
+  planType          String
+  status            String    @default("active")
+  deliveryFrequency String    @default("weekly")
+  startDate         DateTime  @default(now())
+  nextBillingDate   DateTime
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  customer        Customer        @relation(fields: [customerId], references: [id])
+  billingRecords  BillingRecord[]
+}
+
+model BillingRecord {
+  id             String    @id @default(uuid())
+  customerId     String
+  subscriptionId String
+  amount         Float
+  status         String    @default("pending")
+  paidAt         DateTime?
+  invoiceRef     String?
+  createdAt      DateTime  @default(now())
+
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+}
+
+model DeliveryAddress {
+  id         String   @id @default(uuid())
+  customerId String
+  street     String
+  city       String
+  province   String
+  postalCode String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+model LoyaltyAccount {
+  id            String   @id @default(uuid())
+  customerId    String   @unique
+  pointsBalance Int      @default(0)
+  tier          String   @default("bronze")
+  lastUpdated   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+}

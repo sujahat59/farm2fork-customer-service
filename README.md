@@ -10,7 +10,15 @@ npx prisma migrate dev --name init
 npm start
 ```
 
-Service runs on: `http://localhost:3000`
+## API Documentation (Swagger)
+
+Interactive API documentation is available when the server is running:
+```
+http://localhost:3000/docs
+```
+
+All endpoints are documented with request bodies, parameters, and response formats.
+You can test any endpoint directly from the browser — no Postman needed.
 
 Run tests:
 ```bash

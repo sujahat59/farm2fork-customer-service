@@ -10,6 +10,15 @@ npx prisma migrate dev --name init
 npm start
 ```
 
+Service runs on: `http://localhost:3000`
+
+Run tests:
+```bash
+npm test
+```
+
+---
+
 ## API Documentation (Swagger)
 
 Interactive API documentation is available when the server is running:
@@ -20,9 +29,31 @@ http://localhost:3000/docs
 All endpoints are documented with request bodies, parameters, and response formats.
 You can test any endpoint directly from the browser — no Postman needed.
 
-Run tests:
-```bash
-npm test
+---
+
+## Authentication
+
+Our service uses JWT (JSON Web Tokens) for authentication.
+
+### How it works
+1. Register via `POST /auth/register`
+2. Login via `POST /auth/login` — you get a token back
+3. Token is valid for 24 hours
+4. Pass the token in the `Authorization` header as `Bearer <token>`
+
+### For other teams
+To verify a token call `GET /auth/verify` with the token in the header.
+You will receive the customer's `id`, `name`, and `email` back.
+
+```json
+{
+  "valid": true,
+  "customer": {
+    "id": "uuid",
+    "name": "Jane Doe",
+    "email": "jane@example.com"
+  }
+}
 ```
 
 ---
@@ -36,20 +67,23 @@ src/
 ├── routes/
 │   ├── customerRoutes.js           # /customers
 │   ├── subscriptionRoutes.js       # /subscriptions
-│   └── billingRoutes.js            # /billing
+│   ├── billingRoutes.js            # /billing
+│   └── authRoutes.js               # /auth
 ├── controllers/
 │   ├── customerController.js
 │   ├── subscriptionController.js
 │   ├── billingController.js
 │   ├── addressController.js
-│   └── loyaltyController.js
+│   ├── loyaltyController.js
+│   └── authController.js
 └── services/
     ├── customerService.js          # Business logic
     ├── subscriptionService.js      # Renewal flow
     ├── billingService.js           # Billing lifecycle
     ├── addressService.js           # Delivery addresses
     ├── loyaltyService.js           # Points & tiers
-    └── integrationService.js       # Outbound calls to other teams
+    ├── integrationService.js       # Outbound calls to other teams
+    └── authService.js              # JWT auth logic
 prisma/
 └── schema.prisma               # Database schema (5 entities)
 tests/
@@ -64,7 +98,7 @@ tests/
 
 | Entity | Description |
 |--------|-------------|
-| Customer | Core identity — name, email, phone, status |
+| Customer | Core identity — name, email, phone, password, status |
 | Subscription | Farm Box plan — type, frequency, billing date |
 | BillingRecord | Payment record per billing cycle |
 | DeliveryAddress | Saved addresses per customer |
@@ -79,11 +113,18 @@ tests/
 
 ## API Endpoints
 
+### Auth endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /auth/register | Register with name, email, password |
+| POST | /auth/login | Login and receive JWT token |
+| GET | /auth/verify | Verify a JWT token — for other teams |
+
 ### Endpoints we expose (other teams call us)
 
 | Method | Path | Description | Used By |
 |--------|------|-------------|---------|
-| POST | /customers | Register a new customer | Internal |
 | GET | /customers/:id | Get customer by ID | Order Orchestration |
 | PATCH | /customers/:id | Update customer profile | Internal |
 | POST | /customers/:id/subscriptions | Create a subscription | Internal |
@@ -109,44 +150,54 @@ tests/
 
 ## Example Requests (PowerShell)
 
-### Register a customer
+### Register
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/customers" -Method POST -ContentType "application/json" -Body '{"name": "Jane Doe", "email": "jane@example.com", "phone": "519-555-0100"}'
+Invoke-RestMethod -Uri "http://localhost:3000/auth/register" -Method POST -ContentType "application/json" -Body '{"name": "Jane Doe", "email": "jane@example.com", "password": "password123", "phone": "519-555-0100"}'
+```
+
+### Login
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3000/auth/login" -Method POST -ContentType "application/json" -Body '{"email": "jane@example.com", "password": "password123"}'
+```
+
+### Verify token (other teams use this)
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3000/auth/verify" -Method GET -Headers @{Authorization="Bearer YOUR_TOKEN_HERE"}
 ```
 
 ### Add a delivery address
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/customers//addresses" -Method POST -ContentType "application/json" -Body '{"street": "123 Main St", "city": "Waterloo", "province": "ON", "postalCode": "N2L 3G1"}'
+Invoke-RestMethod -Uri "http://localhost:3000/customers/<customerId>/addresses" -Method POST -ContentType "application/json" -Body '{"street": "123 Main St", "city": "Waterloo", "province": "ON", "postalCode": "N2L 3G1"}'
 ```
 
 ### Create a subscription
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/customers//subscriptions" -Method POST -ContentType "application/json" -Body '{"planType": "standard", "deliveryFrequency": "weekly", "addressId": ""}'
+Invoke-RestMethod -Uri "http://localhost:3000/customers/<customerId>/subscriptions" -Method POST -ContentType "application/json" -Body '{"planType": "standard", "deliveryFrequency": "weekly", "addressId": "<addressId>"}'
 ```
 
 ### Pause a subscription
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/subscriptions//status" -Method PATCH -ContentType "application/json" -Body '{"status": "paused"}'
+Invoke-RestMethod -Uri "http://localhost:3000/subscriptions/<subscriptionId>/status" -Method PATCH -ContentType "application/json" -Body '{"status": "paused"}'
 ```
 
 ### Trigger subscription renewal
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/subscriptions//renew" -Method POST
+Invoke-RestMethod -Uri "http://localhost:3000/subscriptions/<subscriptionId>/renew" -Method POST
 ```
 
 ### Mark billing as paid
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/billing//status" -Method PATCH -ContentType "application/json" -Body '{"status": "paid"}'
+Invoke-RestMethod -Uri "http://localhost:3000/billing/<billingId>/status" -Method PATCH -ContentType "application/json" -Body '{"status": "paid"}'
 ```
 
 ### Get billing history (only paid)
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/customers//billing?status=paid" -Method GET
+Invoke-RestMethod -Uri "http://localhost:3000/customers/<customerId>/billing?status=paid" -Method GET
 ```
 
 ### Get loyalty account
 ```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/customers//loyalty" -Method GET
+Invoke-RestMethod -Uri "http://localhost:3000/customers/<customerId>/loyalty" -Method GET
 ```
 
 ---
@@ -159,7 +210,7 @@ The port can be changed by setting the `PORT` environment variable in `.env`.
 
 We are ready to coordinate base URLs and request/response formats with:
 - Order Orchestration team
-- Delivery Execution team  
+- Delivery Execution team
 - Product & Inventory team
 
 Please reach out so we can align on contracts!

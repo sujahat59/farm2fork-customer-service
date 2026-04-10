@@ -5,7 +5,6 @@ const app = express();
 
 app.use(express.json());
 
-// ── Swagger setup ────────────────────────────────────────────
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -16,6 +15,7 @@ const swaggerOptions = {
     },
     servers: [{ url: 'http://localhost:3000' }],
     tags: [
+      { name: 'Auth', description: 'Authentication and JWT token management' },
       { name: 'Customers', description: 'Customer management' },
       { name: 'Subscriptions', description: 'Subscription lifecycle' },
       { name: 'Addresses', description: 'Delivery address management' },
@@ -23,18 +23,14 @@ const swaggerOptions = {
       { name: 'Loyalty', description: 'Loyalty points and tiers' },
     ],
     components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        }
+      },
       schemas: {
-        Customer: {
-          type: 'object',
-          properties: {
-            id:        { type: 'string', example: 'uuid-here' },
-            name:      { type: 'string', example: 'Jane Doe' },
-            email:     { type: 'string', example: 'jane@example.com' },
-            phone:     { type: 'string', example: '519-555-0100' },
-            status:    { type: 'string', example: 'active' },
-            createdAt: { type: 'string', example: '2026-03-25T00:00:00.000Z' },
-          }
-        },
         Subscription: {
           type: 'object',
           properties: {
@@ -84,30 +80,72 @@ const swaggerOptions = {
       }
     },
     paths: {
-      '/customers': {
+      '/auth/register': {
         post: {
-          tags: ['Customers'],
+          tags: ['Auth'],
           summary: 'Register a new customer',
-          description: 'Creates a customer and automatically creates a LoyaltyAccount',
+          description: 'Creates a customer account with hashed password and auto-creates a LoyaltyAccount',
           requestBody: {
             required: true,
             content: {
               'application/json': {
                 schema: {
                   type: 'object',
-                  required: ['name', 'email'],
+                  required: ['name', 'email', 'password'],
                   properties: {
-                    name:  { type: 'string', example: 'Jane Doe' },
-                    email: { type: 'string', example: 'jane@example.com' },
-                    phone: { type: 'string', example: '519-555-0100' },
+                    name:     { type: 'string', example: 'Jane Doe' },
+                    email:    { type: 'string', example: 'jane@example.com' },
+                    password: { type: 'string', example: 'password123' },
+                    phone:    { type: 'string', example: '519-555-0100' },
                   }
                 }
               }
             }
           },
           responses: {
-            201: { description: 'Customer created with LoyaltyAccount' },
+            201: { description: 'Registered successfully' },
             400: { description: 'Missing required fields' },
+            409: { description: 'Email already registered' },
+          }
+        }
+      },
+      '/auth/login': {
+        post: {
+          tags: ['Auth'],
+          summary: 'Login and get JWT token',
+          description: 'Returns a JWT token valid for 24 hours. Other teams use this token to authenticate requests.',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['email', 'password'],
+                  properties: {
+                    email:    { type: 'string', example: 'jane@example.com' },
+                    password: { type: 'string', example: 'password123' },
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            200: { description: 'Login successful — returns JWT token and customer info' },
+            400: { description: 'Missing email or password' },
+            401: { description: 'Invalid credentials' },
+          }
+        }
+      },
+      '/auth/verify': {
+        get: {
+          tags: ['Auth'],
+          summary: 'Verify a JWT token',
+          description: 'Other teams (Order Orchestration, Delivery Execution) call this to verify a token is valid and get customer info',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Token is valid — returns decoded customer info' },
+            400: { description: 'No token provided' },
+            401: { description: 'Token is invalid or expired' },
           }
         }
       },
@@ -329,17 +367,15 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// ── Routes ───────────────────────────────────────────────────
 app.use('/customers',     require('./routes/customerRoutes'));
 app.use('/subscriptions', require('./routes/subscriptionRoutes'));
 app.use('/billing',       require('./routes/billingRoutes'));
+app.use('/auth',          require('./routes/authRoutes'));
 
-// ── Health check ─────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'customer-subscriptions' });
 });
 
-// ── Global error handler ─────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });

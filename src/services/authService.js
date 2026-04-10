@@ -22,14 +22,35 @@ async function register({ name, email, phone, password }) {
 }
 
 async function login({ email, password }) {
-  const customer = await prisma.customer.findUnique({ where: { email } });
+  const customer = await prisma.customer.findUnique({
+    where: { email },
+    include: {
+      addresses: {
+        where: { isDefault: true }
+      }
+    }
+  });
+
   if (!customer) throw new Error('Invalid email or password');
 
   const isValid = await bcrypt.compare(password, customer.password);
   if (!isValid) throw new Error('Invalid email or password');
 
+  const defaultAddress = customer.addresses[0] || null;
+
   const token = jwt.sign(
-    { id: customer.id, email: customer.email, name: customer.name },
+    {
+      id:    customer.id,
+      name:  customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      address: defaultAddress ? {
+        street:     defaultAddress.street,
+        city:       defaultAddress.city,
+        province:   defaultAddress.province,
+        postalCode: defaultAddress.postalCode,
+      } : null,
+    },
     JWT_SECRET,
     { expiresIn: '24h' }
   );

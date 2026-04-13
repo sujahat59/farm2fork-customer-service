@@ -1,0 +1,42 @@
+<div class="dashboard-container">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <nav class="sidebar">
+        <div class="sidebar-pfp">
+            <img src="https://robohash.org/{{ username }}?set=set4" alt="pfp" class="pfp-circle">
+            <h3 class="user-name">{{ username }}</h3>
+            <span class="role-badge">Customer</span>
+        </div>
+
+        <ul class="nav-links">
+            <li><a href="/customer" class="active"> Dashboard</a></li>
+            <li class="logout-item"><a href="/login"> Logout</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+        <header class="content-header">
+            <h2>Welcome back, {{ username }}!</h2>
+            <p>Here is what's happening with your account today.</p>
+        </header>
+            <div class="widget-card subscription-widget">
+                <div class="widget-header">
+                    <h3>My Subscription</h3>
+                    <span class="status-pill">Active</span>
+                </div>
+                <div class="plan-details">
+                    <p class="plan-name">Standard Plan</p>
+                    <p class="plan-price">$0.00<span>/mo</span></p>
+                </div>
+                <button class="widget-btn">Manage Plan</button>
+            </div>
+
+            <div class="widget-card">
+                <h3>Account Status</h3>
+                <div class="status-box">
+                    <p class="stat-text">Verified</p>
+                    <p class="stat-subtext">Member since 2026</p>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>

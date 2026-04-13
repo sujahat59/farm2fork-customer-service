@@ -1,0 +1,58 @@
+<div class="Register">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <div class="pfp-container">
+        <img id="pfp-img" src="https://robohash.org/seed?set=set4" alt="pfp" class="pfp-circle">
+    </div>
+
+    <h2>Register</h2>
+
+    <form id="RForm">
+        <input type="text" id="username" placeholder="Username" name="username" required>
+        <input type="password" id="password" placeholder="Password" name="password" required>
+
+        <select id="account_type" name="account_type">
+            <option value="customer">Customer</option>
+            <option value="driver">Driver</option>
+        <button type="submit">Register</button> 
+    </form>
+    <h3>Already have an account? <a href="/login">Login</a></h3>
+</div>
+<script>
+    document.getElementById('username').oninput = function() {
+        const val = this.value.trim();
+        const pfp = document.getElementById('pfp-img');
+        pfp.src = val.length > 0 ? `https://robohash.org/${val}?set=set4` : `https://robohash.org/seed?set=set4`;
+    };
+
+    document.getElementById('RForm').onsubmit = function(event) {
+        event.preventDefault(); 
+
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const account_type = document.getElementById('account_type').value;
+
+        fetch('/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                username: username, 
+                password: password, 
+                account_type: account_type 
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                alert("Account created successfully!");
+                window.location.href = "/login"; 
+            } else {
+                alert("Error: " + data.message);
+            }
+        })
+        .catch(err => {
+            console.error("Error:", err);
+            alert("Could not connect to the server.");
+        });
+    };
+</script>

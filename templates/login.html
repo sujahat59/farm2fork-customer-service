@@ -1,0 +1,59 @@
+<div class="login">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <div class="pfp-container">
+        <img id="pfp-img" src="https://robohash.org/seed?set=set4" alt="pfp" class="pfp-circle">
+    </div>
+
+    <h2>Login</h2>
+
+    <form id="Lform">
+        <input type="text" id="username" placeholder="Username" name="username" required>
+        <input type="password" id="password" placeholder="Password" name="password" required>
+        <button type="submit" id="loginBtn">Login</button> 
+    </form>
+    
+    <h3>Don't have an account? <a href="/register">Register</a></h3>
+</div>
+<script>
+    document.getElementById('username').oninput = function() {
+        const val = this.value.trim();
+        const pfp = document.getElementById('pfp-img');
+        
+        pfp.src = val.length > 0 
+            ? `https://robohash.org/${val}?set=set4` 
+            : `https://robohash.org/seed?set=set4`;
+    };
+
+    document.getElementById('Lform').onsubmit = function(event) {
+        event.preventDefault(); 
+
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        
+        fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username, password: password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Server Response:", data); 
+
+            if (data.status === "success") {
+                const role = data.account_type.toLowerCase();
+                
+                if (role === "driver") {
+                    window.location.href = "/driver";
+                } else if (role === "customer") {
+                    window.location.href = "/customer";
+                } else {
+                    alert("Logged in, but unrecognized role: " + data.account_type);
+                }
+            } else {
+                alert("Login Failed: " + data.message);
+            }
+        })
+        .catch(err => console.error("Error:", err));
+    };
+</script>

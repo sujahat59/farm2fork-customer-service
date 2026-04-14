@@ -1,34 +1,51 @@
 const prisma = require('../prismaClient');
 
-// Get loyalty account for a customer
-async function getLoyaltyAccount(customerId) {
-  const loyalty = await prisma.loyaltyAccount.findUnique({
-    where: { customerId },
-  });
-
-  return loyalty;
+function getTier(points) {
+  if (points >= 1000) return 'gold';
+  if (points >= 500) return 'silver';
+  return 'bronze';
 }
 
-// Add points to a customer's loyalty account
-// Called internally when an order is fulfilled
-async function addPoints(customerId, points) {
+async function getLoyaltyAccount(userId) {
+  return prisma.loyaltyAccount.findUnique({
+    where: { userId },
+    include: { history: { orderBy: { createdAt: 'desc' }, take: 10 } }
+  });
+}
+
+async function addPoints(userId, points, reason) {
   const loyalty = await prisma.loyaltyAccount.update({
-    where: { customerId },
+    where: { userId },
     data: {
       pointsBalance: { increment: points },
       lastUpdated: new Date(),
+      history: {
+        create: { points, reason }
+      }
     }
   });
 
-  // Upgrade tier based on total points
-  const tier = loyalty.pointsBalance >= 1000 ? 'gold'
-             : loyalty.pointsBalance >= 500  ? 'silver'
-             : 'bronze';
+  const newTier = getTier(loyalty.pointsBalance);
+  if (newTier !== loyalty.tier) {
+    await prisma.loyaltyAccount.update({
+      where: { userId },
+      data: { tier: newTier }
+    });
+  }
 
-  return prisma.loyaltyAccount.update({
-    where: { customerId },
-    data: { tier }
+  return prisma.loyaltyAccount.findUnique({
+    where: { userId },
+    include: { history: { orderBy: { createdAt: 'desc' }, take: 10 } }
   });
 }
 
-module.exports = { getLoyaltyAccount, addPoints };
+async function getPointsHistory(userId) {
+  const loyalty = await prisma.loyaltyAccount.findUnique({
+    where: { userId },
+    include: { history: { orderBy: { createdAt: 'desc' } } }
+  });
+  if (!loyalty) return null;
+  return loyalty.history;
+}
+
+module.exports = { getLoyaltyAccount, addPoints, getPointsHistory };

@@ -2,13 +2,24 @@ const subscriptionService = require('../services/subscriptionService');
 
 async function createSubscription(req, res, next) {
   try {
-    const { planType, deliveryFrequency, addressId } = req.body;
+    const { planType, boxType, planDuration, addressId } = req.body;
     if (!planType) return res.status(400).json({ error: 'planType is required' });
 
+    const validBoxTypes = ['fruit', 'veggie', 'meat'];
+    const validDurations = ['weekly', 'monthly', 'yearly'];
+
+    if (boxType && !validBoxTypes.includes(boxType)) {
+      return res.status(400).json({ error: `boxType must be one of: ${validBoxTypes.join(', ')}` });
+    }
+    if (planDuration && !validDurations.includes(planDuration)) {
+      return res.status(400).json({ error: `planDuration must be one of: ${validDurations.join(', ')}` });
+    }
+
     const subscription = await subscriptionService.createSubscription({
-      customerId: req.params.id,
+      userId: req.params.id,
       planType,
-      deliveryFrequency: deliveryFrequency || 'weekly',
+      boxType: boxType || 'fruit',
+      planDuration: planDuration || 'weekly',
       addressId,
     });
     res.status(201).json(subscription);
@@ -20,6 +31,13 @@ async function getSubscription(req, res, next) {
     const subscription = await subscriptionService.getSubscriptionById(req.params.id);
     if (!subscription) return res.status(404).json({ error: 'Subscription not found' });
     res.json(subscription);
+  } catch (err) { next(err); }
+}
+
+async function getSubscriptionHistory(req, res, next) {
+  try {
+    const history = await subscriptionService.getSubscriptionHistory(req.params.id);
+    res.json(history);
   } catch (err) { next(err); }
 }
 
@@ -36,7 +54,6 @@ async function updateStatus(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// POST /subscriptions/:id/renew — trigger renewal manually (for demo/testing)
 async function renewSubscription(req, res, next) {
   try {
     const result = await subscriptionService.renewSubscription(req.params.id);
@@ -45,4 +62,4 @@ async function renewSubscription(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { createSubscription, getSubscription, updateStatus, renewSubscription };
+module.exports = { createSubscription, getSubscription, getSubscriptionHistory, updateStatus, renewSubscription };

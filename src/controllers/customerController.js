@@ -1,50 +1,30 @@
 const customerService = require('../services/customerService');
 
-// POST /customers
-async function createCustomer(req, res, next) {
+async function getUser(req, res, next) {
   try {
-    const { name, email, phone, address } = req.body;
-
-    if (!name || !email) {
-      return res.status(400).json({ error: 'name and email are required' });
-    }
-
-    const customer = await customerService.createCustomer({ name, email, phone, address });
-    res.status(201).json(customer);
-  } catch (err) {
-    next(err);
-  }
+    const user = await customerService.getUserById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const { password, ...userWithoutPassword } = user;
+    res.json(userWithoutPassword);
+  } catch (err) { next(err); }
 }
 
-// GET /customers/:id
-async function getCustomer(req, res, next) {
+async function updateUser(req, res, next) {
   try {
-    const customer = await customerService.getCustomerById(req.params.id);
-
-    if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-
-    res.json(customer);
-  } catch (err) {
-    next(err);
-  }
+    const { name, email, phone } = req.body;
+    const user = await customerService.updateUser(req.params.id, { name, email, phone });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const { password, ...userWithoutPassword } = user;
+    res.json(userWithoutPassword);
+  } catch (err) { next(err); }
 }
 
-// PATCH /customers/:id
-async function updateCustomer(req, res, next) {
+async function deleteUser(req, res, next) {
   try {
-    const { name, email, phone, address } = req.body;
-    const customer = await customerService.updateCustomer(req.params.id, { name, email, phone, address });
-
-    if (!customer) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-
-    res.json(customer);
-  } catch (err) {
-    next(err);
-  }
+    const user = await customerService.deleteUser(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'Account deleted successfully' });
+  } catch (err) { next(err); }
 }
 
-module.exports = { createCustomer, getCustomer, updateCustomer };
+module.exports = { getUser, updateUser, deleteUser };

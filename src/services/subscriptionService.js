@@ -1,27 +1,35 @@
 const prisma = require('../prismaClient');
 const integrationService = require('./integrationService');
 
-function getNextBillingDate(frequency) {
+// Pricing matrix — boxType + planDuration
+const PRICES = {
+  fruit: { weekly: 29.99, monthly: 109.99, yearly: 1199.99 },
+  veggie: { weekly: 27.99, monthly: 99.99,  yearly: 1099.99 },
+  meat:  { weekly: 49.99, monthly: 179.99, yearly: 1999.99 },
+};
+
+function getPrice(boxType, planDuration) {
+  return PRICES[boxType]?.[planDuration] || 29.99;
+}
+
+function getNextBillingDate(planDuration) {
   const date = new Date();
-  date.setDate(date.getDate() + (frequency === 'biweekly' ? 14 : 7));
+  if (planDuration === 'monthly') date.setMonth(date.getMonth() + 1);
+  else if (planDuration === 'yearly') date.setFullYear(date.getFullYear() + 1);
+  else date.setDate(date.getDate() + 7); // weekly default
   return date;
 }
 
-const PLAN_PRICES = { basic: 29.99, standard: 49.99, premium: 79.99 };
-
-async function createSubscription({ customerId, planType, deliveryFrequency, addressId }) {
-  const nextBillingDate = getNextBillingDate(deliveryFrequency);
-  const amount = PLAN_PRICES[planType] || 29.99;
+async function createSubscription({ userId, planType, boxType = 'fruit', planDuration = 'weekly', addressId }) {
+  const nextBillingDate = getNextBillingDate(planDuration);
+  const amount = getPrice(boxType, planDuration);
 
   const subscription = await prisma.subscription.create({
     data: {
-      customerId,
-      planType,
-      deliveryFrequency,
-      nextBillingDate,
-      addressId: addressId || null,
+      userId, planType, boxType, planDuration,
+      nextBillingDate, addressId: addressId || null,
       billingRecords: {
-        create: { customerId, amount, status: 'pending' }
+        create: { userId, amount, status: 'pending' }
       }
     },
     include: { billingRecords: true, address: true }
@@ -30,16 +38,21 @@ async function createSubscription({ customerId, planType, deliveryFrequency, add
   return subscription;
 }
 
-// Used by Delivery Execution — returns subscription + address + customer
 async function getSubscriptionById(id) {
   return prisma.subscription.findUnique({
     where: { id },
     include: {
       address: true,
-      customer: {
-        select: { id: true, name: true, email: true, phone: true }
-      }
+      user: { select: { id: true, name: true, email: true, phone: true } }
     }
+  });
+}
+
+async function getSubscriptionHistory(userId) {
+  return prisma.subscription.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    include: { billingRecords: true }
   });
 }
 
@@ -47,10 +60,17 @@ async function updateSubscriptionStatus(id, status) {
   const exists = await prisma.subscription.findUnique({ where: { id } });
   if (!exists) return null;
 
+  // If cancelling — mark any pending billing as cancelled
+  if (status === 'cancelled') {
+    await prisma.billingRecord.updateMany({
+      where: { subscriptionId: id, status: 'pending' },
+      data: { status: 'failed' }
+    });
+  }
+
   return prisma.subscription.update({ where: { id }, data: { status } });
 }
 
-// Renew a subscription — creates new billing record + triggers order
 async function renewSubscription(id) {
   const subscription = await prisma.subscription.findUnique({
     where: { id },
@@ -62,28 +82,25 @@ async function renewSubscription(id) {
     throw new Error('Cannot renew a subscription that is not active');
   }
 
-  const amount = PLAN_PRICES[subscription.planType] || 29.99;
-  const nextBillingDate = getNextBillingDate(subscription.deliveryFrequency);
+  const amount = getPrice(subscription.boxType, subscription.planDuration);
+  const nextBillingDate = getNextBillingDate(subscription.planDuration);
 
-  // Create new billing record for this cycle
   const billing = await prisma.billingRecord.create({
     data: {
-      customerId: subscription.customerId,
+      userId: subscription.userId,
       subscriptionId: subscription.id,
-      amount,
-      status: 'pending',
+      amount, status: 'pending',
     }
   });
 
-  // Update next billing date
   await prisma.subscription.update({
     where: { id },
     data: { nextBillingDate }
   });
 
-  // Trigger order with Order Orchestration
+  // Call Order Orchestration — replace URL when they confirm
   const order = await integrationService.createOrder({
-    customerId: subscription.customerId,
+    userId: subscription.userId,
     subscriptionId: subscription.id,
     deliveryAddressId: subscription.addressId,
   });
@@ -91,4 +108,4 @@ async function renewSubscription(id) {
   return { subscription, billing, order };
 }
 
-module.exports = { createSubscription, getSubscriptionById, updateSubscriptionStatus, renewSubscription };
+module.exports = { createSubscription, getSubscriptionById, getSubscriptionHistory, updateSubscriptionStatus, renewSubscription };

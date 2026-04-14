@@ -1,64 +1,89 @@
 const prisma = require('../prismaClient');
 
-// Create a new delivery address for a customer
-async function createAddress({ customerId, street, city, province, postalCode, isDefault }) {
-  // If this is the first address or isDefault is true, make it default
-  // and unset any previous default
+const VALID_PROVINCES = ['AB','BC','MB','NB','NL','NS','NT','NU','ON','PE','QC','SK','YT'];
+
+function validatePostalCode(code) {
+  return /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(code);
+}
+
+function validateProvince(province) {
+  return VALID_PROVINCES.includes(province.toUpperCase());
+}
+
+async function createAddress({ userId, street, city, province, postalCode, isDefault }) {
+  if (!validatePostalCode(postalCode)) {
+    throw new Error('Invalid postal code format. Example: N2L 3G1');
+  }
+  if (!validateProvince(province)) {
+    throw new Error(`Invalid province. Must be one of: ${VALID_PROVINCES.join(', ')}`);
+  }
+
   if (isDefault) {
     await prisma.deliveryAddress.updateMany({
-      where: { customerId, isDefault: true },
-      data: { isDefault: false },
+      where: { userId, isDefault: true },
+      data: { isDefault: false }
     });
   }
 
-  // If no addresses exist yet, auto-set as default
-  const existing = await prisma.deliveryAddress.count({ where: { customerId } });
+  const existing = await prisma.deliveryAddress.count({ where: { userId } });
   const shouldBeDefault = isDefault || existing === 0;
 
-  const address = await prisma.deliveryAddress.create({
-    data: { customerId, street, city, province, postalCode, isDefault: shouldBeDefault }
+  return prisma.deliveryAddress.create({
+    data: {
+      userId, street, city,
+      province: province.toUpperCase(),
+      postalCode: postalCode.toUpperCase(),
+      isDefault: shouldBeDefault
+    }
   });
-
-  return address;
 }
 
-// Get all addresses for a customer
-async function getAddresses(customerId) {
+async function getAddresses(userId) {
   return prisma.deliveryAddress.findMany({
-    where: { customerId },
+    where: { userId },
     orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }]
   });
 }
 
-// Update an address
 async function updateAddress(id, data) {
+  if (data.postalCode && !validatePostalCode(data.postalCode)) {
+    throw new Error('Invalid postal code format. Example: N2L 3G1');
+  }
+  if (data.province && !validateProvince(data.province)) {
+    throw new Error(`Invalid province. Must be one of: ${VALID_PROVINCES.join(', ')}`);
+  }
+
   const cleanData = Object.fromEntries(
     Object.entries(data).filter(([_, v]) => v !== undefined)
   );
 
+  if (cleanData.province) cleanData.province = cleanData.province.toUpperCase();
+  if (cleanData.postalCode) cleanData.postalCode = cleanData.postalCode.toUpperCase();
+
   try {
-    return await prisma.deliveryAddress.update({
-      where: { id },
-      data: cleanData,
-    });
+    return await prisma.deliveryAddress.update({ where: { id }, data: cleanData });
   } catch {
     return null;
   }
 }
 
-// Set a specific address as the default for a customer
-async function setDefault(customerId, addressId) {
-  // Unset all current defaults
-  await prisma.deliveryAddress.updateMany({
-    where: { customerId, isDefault: true },
-    data: { isDefault: false },
-  });
+async function deleteAddress(id) {
+  try {
+    return await prisma.deliveryAddress.delete({ where: { id } });
+  } catch {
+    return null;
+  }
+}
 
-  // Set the new default
+async function setDefault(userId, addressId) {
+  await prisma.deliveryAddress.updateMany({
+    where: { userId, isDefault: true },
+    data: { isDefault: false }
+  });
   return prisma.deliveryAddress.update({
     where: { id: addressId },
-    data: { isDefault: true },
+    data: { isDefault: true }
   });
 }
 
-module.exports = { createAddress, getAddresses, updateAddress, setDefault };
+module.exports = { createAddress, getAddresses, updateAddress, deleteAddress, setDefault };

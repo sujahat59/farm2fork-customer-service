@@ -7,42 +7,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Customer {
-  id          String    @id @default(uuid())
-  name        String
-  email       String    @unique
-  phone       String?
-  password    String
-  status      String    @default("active")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  password  String
+  role      String   @default("customer")
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  subscriptions   Subscription[]
-  billingRecords  BillingRecord[]
-  addresses       DeliveryAddress[]
-  loyaltyAccount  LoyaltyAccount?
+  subscriptions  Subscription[]
+  billingRecords BillingRecord[]
+  addresses      DeliveryAddress[]
+  loyaltyAccount LoyaltyAccount?
 }
 
 model Subscription {
   id                String    @id @default(uuid())
-  customerId        String
+  userId            String
   addressId         String?
+  boxType           String    @default("fruit")
   planType          String
+  planDuration      String    @default("weekly")
   status            String    @default("active")
-  deliveryFrequency String    @default("weekly")
   startDate         DateTime  @default(now())
   nextBillingDate   DateTime
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  customer        Customer         @relation(fields: [customerId], references: [id])
-  address         DeliveryAddress? @relation(fields: [addressId], references: [id])
-  billingRecords  BillingRecord[]
+  user           User             @relation(fields: [userId], references: [id])
+  address        DeliveryAddress? @relation(fields: [addressId], references: [id])
+  billingRecords BillingRecord[]
 }
 
 model BillingRecord {
   id             String    @id @default(uuid())
-  customerId     String
+  userId         String
   subscriptionId String
   amount         Float
   status         String    @default("pending")
@@ -50,13 +52,13 @@ model BillingRecord {
   invoiceRef     String?
   createdAt      DateTime  @default(now())
 
-  customer     Customer     @relation(fields: [customerId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
   subscription Subscription @relation(fields: [subscriptionId], references: [id])
 }
 
 model DeliveryAddress {
   id         String   @id @default(uuid())
-  customerId String
+  userId     String
   street     String
   city       String
   province   String
@@ -64,16 +66,27 @@ model DeliveryAddress {
   isDefault  Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  customer      Customer       @relation(fields: [customerId], references: [id])
+  user          User           @relation(fields: [userId], references: [id])
   subscriptions Subscription[]
 }
 
 model LoyaltyAccount {
-  id            String   @id @default(uuid())
-  customerId    String   @unique
-  pointsBalance Int      @default(0)
-  tier          String   @default("bronze")
-  lastUpdated   DateTime @default(now())
+  id            String         @id @default(uuid())
+  userId        String         @unique
+  pointsBalance Int            @default(0)
+  tier          String         @default("bronze")
+  lastUpdated   DateTime       @default(now())
 
-  customer Customer @relation(fields: [customerId], references: [id])
+  user    User           @relation(fields: [userId], references: [id])
+  history LoyaltyHistory[]
+}
+
+model LoyaltyHistory {
+  id               String   @id @default(uuid())
+  loyaltyAccountId String
+  points           Int
+  reason           String
+  createdAt        DateTime @default(now())
+
+  loyaltyAccount LoyaltyAccount @relation(fields: [loyaltyAccountId], references: [id])
 }

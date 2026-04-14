@@ -8,7 +8,6 @@ async function getBillingHistory(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// PATCH /billing/:id/status
 async function updateBillingStatus(req, res, next) {
   try {
     const { status } = req.body;
@@ -22,4 +21,22 @@ async function updateBillingStatus(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { getBillingHistory, updateBillingStatus };
+async function processBillingManifest(req, res, next) {
+  try {
+    const { subscriptionId, orderId, amount } = req.body;
+    if (!subscriptionId || !orderId) {
+      return res.status(400).json({ error: 'subscriptionId and orderId are required' });
+    }
+    const result = await billingService.processBillingManifest({ subscriptionId, orderId, amount });
+    res.json(result);
+  } catch (err) { next(err); }
+}
+
+async function getTotalSpent(req, res, next) {
+  try {
+    const result = await billingService.getTotalSpent(req.params.id);
+    res.json(result);
+  } catch (err) { next(err); }
+}
+
+module.exports = { getBillingHistory, updateBillingStatus, processBillingManifest, getTotalSpent };

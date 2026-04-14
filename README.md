@@ -211,7 +211,6 @@ The port can be changed by setting the `PORT` environment variable in `.env`.
 We are ready to coordinate base URLs and request/response formats with:
 - Order Orchestration team
 - Delivery Execution team
-- Product & Inventory team
 
 Please reach out so we can align on contracts!
 

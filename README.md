@@ -282,7 +282,7 @@ Required CSV columns: `name`, `email`, `password`, `phone` (optional)
 ```env
 DATABASE_URL="file:./dev.db"
 PORT=3000
-JWT_SECRET=farm2fork-super-secret-key-2026
+JWT_SECRET=your-secret-key-here
 DELIVERY_REDIRECT_URL=http://localhost:4000/driver/dashboard
 DELIVERY_EXECUTION_URL=http://localhost:3003
 ORDER_ORCHESTRATION_URL=http://localhost:3002

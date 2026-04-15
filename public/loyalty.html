@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farm2Fork — Loyalty</title>
+  <link rel="stylesheet" href="css/shared.css">
+  <style>
+    .points-card{background:linear-gradient(135deg,#1a3a1a,#2d5a2d);border-radius:20px;padding:32px;color:white;margin-bottom:28px;position:relative;overflow:hidden;}
+    .points-card::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:rgba(255,255,255,0.05);border-radius:50%;}
+    .points-card::after{content:'';position:absolute;bottom:-60px;left:-30px;width:200px;height:200px;background:rgba(255,255,255,0.04);border-radius:50%;}
+    .points-big{font-size:56px;font-weight:800;line-height:1;}
+    .tier-track{background:rgba(255,255,255,0.2);border-radius:10px;height:12px;overflow:hidden;margin:12px 0;}
+    .tier-fill{height:100%;border-radius:10px;transition:width 1s ease;}
+    .reward-item{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:12px;transition:all 0.2s;}
+    .reward-item.can{background:rgba(45,90,45,0.06);}
+    .reward-item.cant{background:rgba(0,0,0,0.03);opacity:0.6;}
+    .reward-item:hover.can{background:rgba(45,90,45,0.12);}
+    .cta-banner{background:linear-gradient(135deg,rgba(218,165,32,0.15),rgba(255,215,0,0.15));border:1.5px solid rgba(218,165,32,0.3);border-radius:20px;padding:28px;display:flex;align-items:center;justify-content:space-between;margin-top:24px;}
+  </style>
+</head>
+<body>
+<div id="particles"></div>
+<nav class="sidebar">
+  <div class="farmer-wrap" id="farmerWrap"></div>
+  <p class="sidebar-name" id="sidebarName"></p>
+  <span class="role-badge">Customer</span>
+  <div id="navLinks"></div>
+  <button class="logout-btn" id="logoutBtn"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>Logout</button>
+</nav>
+<main class="main">
+  <h1 class="page-title">Loyalty Rewards</h1>
+  <p class="page-sub">Earn points with every payment and unlock exclusive rewards</p>
+
+  <div class="points-card">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;position:relative;z-index:1;">
+      <div style="width:60px;height:60px;background:rgba(255,255,255,0.1);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+        <svg width="30" height="30" fill="#FFD700" viewBox="0 0 24 24"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+      </div>
+      <div>
+        <div style="font-size:13px;opacity:0.7;text-transform:uppercase;letter-spacing:0.06em;">Your Points</div>
+        <div class="points-big" id="pointsDisplay">0</div>
+      </div>
+      <div style="margin-left:auto;text-align:right;position:relative;z-index:1;">
+        <div style="font-size:13px;opacity:0.7">Current Tier</div>
+        <div style="font-size:22px;font-weight:700;" id="tierDisplay">Bronze</div>
+      </div>
+    </div>
+    <div style="position:relative;z-index:1;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;opacity:0.8;margin-bottom:6px;">
+        <span id="tierFrom">Bronze</span>
+        <span id="tierNext">500 pts to Silver</span>
+        <span id="tierTo">Silver</span>
+      </div>
+      <div class="tier-track"><div class="tier-fill" id="tierFill" style="width:0%;background:linear-gradient(90deg,#CD7F32,#C0C0C0)"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;opacity:0.6;margin-top:6px;">
+        <span>0</span><span>500</span><span>1000</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#2d5a2d" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg>
+        <h3 style="font-size:17px;font-weight:700;color:#1a3a1a;">Available Rewards</h3>
+      </div>
+      <div id="rewardsList"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="#2d5a2d" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <h3 style="font-size:17px;font-weight:700;color:#1a3a1a;">Points History</h3>
+      </div>
+      <div id="historyList"><p style="color:#999;text-align:center;padding:20px;">Loading...</p></div>
+    </div>
+  </div>
+
+  <div class="cta-banner">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div style="width:52px;height:52px;background:#DAA520;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="26" height="26" fill="white" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6" stroke="white" stroke-width="2"/><path d="M16 10a4 4 0 01-8 0" fill="none" stroke="white" stroke-width="2"/></svg>
+      </div>
+      <div>
+        <div style="font-size:18px;font-weight:700;color:#1a3a1a;">Earn More Points!</div>
+        <div style="color:#5a7a5a;font-size:14px;">Get 1 point for every $1 spent on your subscription</div>
+      </div>
+    </div>
+    <a href="subscription.html" style="display:flex;align-items:center;gap:8px;background:#DAA520;color:white;padding:12px 24px;border-radius:12px;font-weight:700;text-decoration:none;transition:all 0.25s;" onmouseover="this.style.background='#B8860B'" onmouseout="this.style.background='#DAA520'">
+      Shop Now
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+  </div>
+</main>
+<script src="js/shared.js"></script>
+<script>
+initSidebar('loyalty.html');
+const rewards = [
+  {name:'Free Herbs Bundle',points:150},
+  {name:'$10 Off Next Order',points:300},
+  {name:'Free Delivery (1 month)',points:500},
+  {name:'Premium Recipe Book',points:750},
+];
+
+async function load() {
+  try {
+    const res = await fetch(`${API}/customers/${user.id}/loyalty`, {headers});
+    const data = await res.json();
+    const pts = data.pointsBalance || 0;
+
+    // Animate counter
+    let cur = 0;
+    const step = pts / 60;
+    const timer = setInterval(() => {
+      cur = Math.min(cur + step, pts);
+      document.getElementById('pointsDisplay').textContent = Math.floor(cur).toLocaleString();
+      if (cur >= pts) clearInterval(timer);
+    }, 25);
+
+    const tier = data.tier || 'bronze';
+    document.getElementById('tierDisplay').textContent = tier.charAt(0).toUpperCase()+tier.slice(1);
+
+    // Tier progress
+    const thresholds = {bronze:0, silver:500, gold:1000};
+    const tierOrder = ['bronze','silver','gold'];
+    const idx = tierOrder.indexOf(tier);
+    const nextTierName = tierOrder[idx+1] || 'gold';
+    const from = thresholds[tier];
+    const to = thresholds[nextTierName] || 1000;
+    const pct = Math.min(((pts - from) / (to - from)) * 100, 100);
+    document.getElementById('tierFill').style.width = pct + '%';
+    document.getElementById('tierFrom').textContent = tier.charAt(0).toUpperCase()+tier.slice(1);
+    document.getElementById('tierTo').textContent = nextTierName.charAt(0).toUpperCase()+nextTierName.slice(1);
+    document.getElementById('tierNext').textContent = pts >= to ? 'Max tier reached!' : `${to - pts} pts to ${nextTierName.charAt(0).toUpperCase()+nextTierName.slice(1)}`;
+
+    // Rewards
+    document.getElementById('rewardsList').innerHTML = rewards.map(r => `
+      <div class="reward-item ${pts>=r.points?'can':'cant'}">
+        <span style="font-weight:500;color:${pts>=r.points?'#1a3a1a':'#999'}">${r.name}</span>
+        <button class="btn-primary" style="padding:8px 16px;font-size:13px;" ${pts<r.points?'disabled style="opacity:0.4;cursor:not-allowed"':''}>${r.points} pts</button>
+      </div>`).join('');
+
+    // History
+    document.getElementById('historyList').innerHTML = data.history?.length
+      ? data.history.slice(0,8).map(h=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(26,58,26,0.06);">
+            <div><div style="font-size:14px;font-weight:500;color:#1a3a1a">${h.reason}</div><div style="font-size:12px;color:#5a7a5a">${new Date(h.createdAt).toLocaleDateString()}</div></div>
+            <span style="font-weight:700;color:#2d5a2d">+${h.points}</span>
+          </div>`).join('')
+      : '<p style="color:#999;text-align:center;padding:20px">No points history yet</p>';
+  } catch(e) { console.error(e); }
+}
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farm2Fork — Driver Portal</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="auth-body">
+
+  <div class="auth-card">
+    <div class="farmer-wrap" id="farmer"></div>
+    <h2>Driver Portal</h2>
+    <p class="subtitle" id="statusMsg">Redirecting to delivery dashboard...</p>
+    <button class="btn btn-primary" onclick="logout()" style="margin-top:20px;">Logout</button>
+  </div>
+
+  <script src="js/farmer.js"></script>
+  <script>
+    initFarmer('farmer');
+    setFarmerState('thinking');
+
+    const params = new URLSearchParams(window.location.search);
+    const token  = params.get('token') || localStorage.getItem('token');
+
+    if (!token) {
+      window.location.href = 'login.html';
+    } else {
+      localStorage.setItem('token', token);
+      setFarmerState('happy');
+      // Swap URL once Delivery team confirms
+      // window.location.href = `http://delivery-team-url/dashboard?token=${token}`;
+      document.getElementById('statusMsg').textContent =
+        'Token received. Waiting for Delivery team redirect URL.';
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,25 @@
+/* Farmer character states */
+.farmer-wrap {
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 20px;
+  position: relative;
+}
+
+.farmer-wrap svg {
+  width: 100%;
+  height: 100%;
+  transition: transform 0.2s ease;
+}
+
+.farmer-wrap.typing svg {
+  transform: scale(1.05);
+}
+
+.farmer-wrap.happy svg .farmer-mouth {
+  d: path("M 62 88 Q 70 96 78 88");
+}
+
+.farmer-wrap.thinking svg {
+  transform: rotate(-3deg) scale(1.02);
+}

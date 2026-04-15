@@ -1,9 +1,16 @@
 # Customer & Subscriptions Service
-### Farm2Fork Platform 
+### Farm2Fork Platform — Delivery Team
 
 ---
 
-## Setup
+## Overview
+
+The Customer & Subscriptions service is the **authentication hub** for the entire Farm2Fork platform. We own customer accounts, subscription lifecycle, billing, loyalty rewards, and delivery addresses. Every team that needs to identify a customer calls our auth endpoints.
+
+---
+
+## Quick Start
+
 ```bash
 npm install
 npx prisma migrate dev --name init
@@ -12,46 +19,75 @@ npm start
 
 Service runs on: `http://localhost:3000`
 
-Run tests:
 ```bash
 npm test
 ```
 
 ---
 
-## API Documentation (Swagger)
+## API Documentation
 
-Interactive API documentation is available when the server is running:
+Interactive Swagger documentation is available at:
+
 ```
 http://localhost:3000/docs
 ```
 
-All endpoints are documented with request bodies, parameters, and response formats.
-You can test any endpoint directly from the browser — no Postman needed.
+All endpoints are fully documented with request bodies, parameters, and response formats. No Postman required — test directly from the browser.
 
 ---
 
 ## Authentication
 
-Our service uses JWT (JSON Web Tokens) for authentication.
+We generate and verify all JWT tokens for the platform. No other team needs to build their own auth system.
 
-### How it works
-1. Register via `POST /auth/register`
-2. Login via `POST /auth/login` — you get a token back
-3. Token is valid for 24 hours
-4. Pass the token in the `Authorization` header as `Bearer <token>`
+### Token Flow
 
-### For other teams
-To verify a token call `GET /auth/verify` with the token in the header.
-You will receive the customer's `id`, `name`, and `email` back.
+1. Customer registers via `POST /auth/register`
+2. Customer logs in via `POST /auth/login` — receives a JWT token
+3. Token is valid for **24 hours**
+4. Token payload contains: `id`, `name`, `email`, `phone`, `role`, and default `address`
+5. All protected requests pass the token as: `Authorization: Bearer <token>`
+
+### Token Payload
+
+```json
+{
+  "id": "uuid",
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "phone": "519-555-0100",
+  "role": "customer",
+  "address": {
+    "street": "123 Main St",
+    "city": "Waterloo",
+    "province": "ON",
+    "postalCode": "N2L 3G1"
+  }
+}
+```
+
+### For Other Teams
+
+Other teams do **not** call our login endpoint. The customer logs in through our frontend, receives a token, and carries it to other services. To verify a token:
+
+```
+GET /auth/verify
+Authorization: Bearer <token>
+```
+
+Response:
 
 ```json
 {
   "valid": true,
-  "customer": {
+  "user": {
     "id": "uuid",
     "name": "Jane Doe",
-    "email": "jane@example.com"
+    "email": "jane@example.com",
+    "phone": "519-555-0100",
+    "role": "customer",
+    "address": { ... }
   }
 }
 ```
@@ -59,33 +95,46 @@ You will receive the customer's `id`, `name`, and `email` back.
 ---
 
 ## Project Structure
+
 ```
 src/
-├── app.js                      # Express app setup
-├── server.js                   # Entry point
-├── prismaClient.js             # DB connection
+├── app.js                       # Express app + Swagger setup
+├── server.js                    # Entry point
+├── prismaClient.js              # Database connection
 ├── routes/
-│   ├── customerRoutes.js           # /customers
-│   ├── subscriptionRoutes.js       # /subscriptions
-│   ├── billingRoutes.js            # /billing
-│   └── authRoutes.js               # /auth
+│   ├── authRoutes.js            # /auth
+│   ├── customerRoutes.js        # /customers
+│   ├── subscriptionRoutes.js    # /subscriptions
+│   ├── billingRoutes.js         # /billing
+│   └── addressRoutes.js         # /addresses
 ├── controllers/
+│   ├── authController.js
 │   ├── customerController.js
 │   ├── subscriptionController.js
 │   ├── billingController.js
 │   ├── addressController.js
-│   ├── loyaltyController.js
-│   └── authController.js
+│   └── loyaltyController.js
 └── services/
-    ├── customerService.js          # Business logic
-    ├── subscriptionService.js      # Renewal flow
-    ├── billingService.js           # Billing lifecycle
-    ├── addressService.js           # Delivery addresses
-    ├── loyaltyService.js           # Points & tiers
-    ├── integrationService.js       # Outbound calls to other teams
-    └── authService.js              # JWT auth logic
+    ├── authService.js           # JWT generation, driver import
+    ├── customerService.js       # Customer CRUD
+    ├── subscriptionService.js   # Subscription lifecycle + pricing
+    ├── billingService.js        # Billing records + manifest
+    ├── addressService.js        # Address management + validation
+    ├── loyaltyService.js        # Points, tiers, history
+    └── integrationService.js    # Outbound calls to other teams
 prisma/
-└── schema.prisma               # Database schema (5 entities)
+└── schema.prisma                # Database schema — 6 entities
+public/
+├── login.html
+├── register.html
+├── customer.html
+├── subscription.html
+├── billing.html
+├── loyalty.html
+├── account.html
+├── driver.html
+├── css/
+└── js/
 tests/
 ├── customer.test.js
 ├── subscription.test.js
@@ -98,125 +147,166 @@ tests/
 
 | Entity | Description |
 |--------|-------------|
-| Customer | Core identity — name, email, phone, password, status |
-| Subscription | Farm Box plan — type, frequency, billing date |
-| BillingRecord | Payment record per billing cycle |
-| DeliveryAddress | Saved addresses per customer |
-| LoyaltyAccount | Points balance and tier (bronze/silver/gold) |
+| User | Customer or driver account — name, email, phone, password, role |
+| Subscription | Farm Box plan — box type, duration, billing date, status |
+| BillingRecord | Payment record per billing cycle — amount, status, invoice ref |
+| DeliveryAddress | Saved addresses per user — with default address support |
+| LoyaltyAccount | Points balance and tier — bronze / silver / gold |
+| LoyaltyHistory | Full history of points earned with reasons |
 
-**Built-in business rules:**
-- Creating a customer automatically creates a LoyaltyAccount
-- Creating a subscription automatically creates the first BillingRecord
-- Renewing a subscription creates a new BillingRecord and triggers Order Orchestration
+### Subscription Box Types
+
+| Box | Weekly | Monthly | Yearly |
+|-----|--------|---------|--------|
+| Fruit Box | $29.99 | $109.99 | $1,199.99 |
+| Veggie Box | $27.99 | $99.99 | $1,099.99 |
+| Meat Box | $49.99 | $179.99 | $1,999.99 |
+
+Box contents are seasonal and randomized — customers select a box type, not specific items.
+
+### Built-in Business Rules
+
+- Registering a user automatically creates a LoyaltyAccount at Bronze tier (0 points)
+- Creating a subscription automatically generates the first BillingRecord (pending)
+- Marking a billing record as paid automatically awards loyalty points (1 pt per $1 spent)
+- Loyalty tier upgrades automatically: Bronze 0–499 pts → Silver 500–999 pts → Gold 1000+ pts
+- Cancelling a subscription marks all pending billing records as failed
 
 ---
 
 ## API Endpoints
 
-### Auth endpoints
+### Authentication
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /auth/register | Register with name, email, password |
-| POST | /auth/login | Login and receive JWT token |
-| GET | /auth/verify | Verify a JWT token — for other teams |
+| POST | /auth/register | Register a new user — creates account and loyalty account |
+| POST | /auth/login | Login — returns JWT token with full user info |
+| GET | /auth/verify | Verify a JWT token — used by all other teams |
+| POST | /auth/import-drivers | Import driver accounts from a CSV file |
 
-### Endpoints we expose (other teams call us)
+### Users
 
-| Method | Path | Description | Used By |
-|--------|------|-------------|---------|
-| GET | /customers/:id | Get customer by ID | Order Orchestration |
-| PATCH | /customers/:id | Update customer profile | Internal |
-| POST | /customers/:id/subscriptions | Create a subscription | Internal |
-| GET | /customers/:id/addresses | Get all delivery addresses | Internal |
-| POST | /customers/:id/addresses | Add a delivery address | Internal |
-| PATCH | /customers/:id/addresses/default | Set default address | Internal |
-| GET | /subscriptions/:id | Get subscription + address | Delivery Execution |
-| PATCH | /subscriptions/:id/status | Pause / resume / cancel | Internal |
-| POST | /subscriptions/:id/renew | Trigger renewal cycle | Internal |
-| GET | /customers/:id/billing | Get billing history | Internal |
-| PATCH | /billing/:id/status | Mark billing as paid/failed | Internal |
-| GET | /customers/:id/loyalty | Get loyalty points and tier | Internal |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /customers/:id | Get user profile with active subscriptions |
+| PATCH | /customers/:id | Update user profile |
+| DELETE | /customers/:id | Delete account |
 
-### Endpoints we call (we depend on other teams)
+### Subscriptions
 
-| Team | Method | Path | Why |
-|------|--------|------|-----|
-| Product & Inventory | GET | /products/available | Show box contents on signup |
-| Order Orchestration | POST | /orders | Trigger order on subscription renewal |
-| Delivery Execution | GET | /deliveries/:id/status | Customer delivery tracking |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /customers/:id/subscriptions | Create a subscription — auto-creates first billing record |
+| GET | /customers/:id/subscription-history | Full subscription history |
+| GET | /subscriptions/:id | Get subscription with address — used by Delivery Execution |
+| PATCH | /subscriptions/:id/status | Update status: active / paused / cancelled |
+| POST | /subscriptions/:id/renew | Trigger renewal — creates new billing record |
 
----
+### Billing
 
-## Example Requests (PowerShell)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /customers/:id/billing | Billing history — filterable by status |
+| GET | /customers/:id/billing/total | Total amount spent and payment count |
+| PATCH | /billing/:id/status | Update billing status — triggers loyalty points on paid |
+| POST | /billing/manifest | Receive billing manifest from Order Orchestration |
 
-### Register
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/auth/register" -Method POST -ContentType "application/json" -Body '{"name": "Jane Doe", "email": "jane@example.com", "password": "password123", "phone": "519-555-0100"}'
-```
+### Addresses
 
-### Login
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/auth/login" -Method POST -ContentType "application/json" -Body '{"email": "jane@example.com", "password": "password123"}'
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /customers/:id/addresses | Add a delivery address |
+| GET | /customers/:id/addresses | List all addresses |
+| PATCH | /customers/:id/addresses/default | Set a default address |
+| PATCH | /addresses/:id | Update address fields |
+| DELETE | /addresses/:id | Delete an address |
 
-### Verify token (other teams use this)
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/auth/verify" -Method GET -Headers @{Authorization="Bearer YOUR_TOKEN_HERE"}
-```
+### Loyalty
 
-### Add a delivery address
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/customers/<customerId>/addresses" -Method POST -ContentType "application/json" -Body '{"street": "123 Main St", "city": "Waterloo", "province": "ON", "postalCode": "N2L 3G1"}'
-```
-
-### Create a subscription
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/customers/<customerId>/subscriptions" -Method POST -ContentType "application/json" -Body '{"planType": "standard", "deliveryFrequency": "weekly", "addressId": "<addressId>"}'
-```
-
-### Pause a subscription
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/subscriptions/<subscriptionId>/status" -Method PATCH -ContentType "application/json" -Body '{"status": "paused"}'
-```
-
-### Trigger subscription renewal
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/subscriptions/<subscriptionId>/renew" -Method POST
-```
-
-### Mark billing as paid
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/billing/<billingId>/status" -Method PATCH -ContentType "application/json" -Body '{"status": "paid"}'
-```
-
-### Get billing history (only paid)
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/customers/<customerId>/billing?status=paid" -Method GET
-```
-
-### Get loyalty account
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/customers/<customerId>/loyalty" -Method GET
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /customers/:id/loyalty | Get points balance, tier, and recent history |
+| GET | /customers/:id/loyalty/history | Full points history |
 
 ---
 
-## Integration Notes
+## Cross-Team Integration
 
-Our service runs on `http://localhost:3000` by default.
+### What other teams call from us
 
-The port can be changed by setting the `PORT` environment variable in `.env`.
+| Team | Endpoint | Purpose |
+|------|----------|---------|
+| Order Orchestration | GET /auth/verify | Validate customer token |
+| Order Orchestration | GET /customers/:id | Get customer profile |
+| Order Orchestration | POST /billing/manifest | Send billing confirmation for us to process |
+| Delivery Execution | GET /auth/verify | Validate customer or driver token |
+| Delivery Execution | GET /subscriptions/:id | Get subscription and delivery address for routing |
 
-We are ready to coordinate base URLs and request/response formats with:
-- Order Orchestration team
-- Delivery Execution team
+### What we call from other teams
 
-Please reach out so we can align on contracts!
+| Team | Endpoint | Purpose | Status |
+|------|----------|---------|--------|
+| Order Orchestration | GET /has | Check box availability before confirming subscription | ⏳ Waiting on OO URL |
+| Order Orchestration | POST /orders | Trigger physical order on subscription renewal | ⏳ Waiting on OO URL |
+| Delivery Execution | GET /api/v1/orders/:id/status | Get delivery status to show customer | ⏳ Waiting on DE URL |
+
+### Driver Login Flow
+
+Drivers log in through our login page. After successful authentication, we detect the `driver` role and redirect to the Delivery Execution dashboard with the token in the URL:
+
+```
+http://<delivery-team-url>/dashboard?token=<JWT_TOKEN>
+```
+
+> ⏳ Waiting on Delivery Execution team to confirm their redirect URL.
+
+### Driver Import
+
+Delivery Execution sends us a CSV file with driver accounts. We import them via:
+
+```
+POST /auth/import-drivers
+Content-Type: multipart/form-data
+Field: file (CSV)
+```
+
+Required CSV columns: `name`, `email`, `password`, `phone` (optional)
+
+> ⏳ Waiting on Delivery Execution team to send the CSV file.
+
+---
+
+## Environment Variables
+
+```env
+DATABASE_URL="file:./dev.db"
+PORT=3000
+JWT_SECRET=farm2fork-super-secret-key-2026
+DELIVERY_REDIRECT_URL=http://localhost:4000/driver/dashboard
+DELIVERY_EXECUTION_URL=http://localhost:3003
+ORDER_ORCHESTRATION_URL=http://localhost:3002
+```
+
+---
+
+## Frontend Pages
+
+| Page | Path | Description |
+|------|------|-------------|
+| Login | /login.html | JWT login with animated farmer character |
+| Register | /register.html | New account registration |
+| Dashboard | /customer.html | Account overview with key stats |
+| Subscription | /subscription.html | Browse and manage Farm Box plans |
+| Billing | /billing.html | Payment history and invoice records |
+| Loyalty | /loyalty.html | Points balance, tier progress, rewards |
+| Account | /account.html | Profile settings and delivery addresses |
+| Driver Portal | /driver.html | Driver redirect handler |
 
 ---
 
 ## Test Results
+
 ```
 Test Suites: 3 passed, 3 total
 Tests:       25 passed, 25 total

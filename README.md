@@ -1,5 +1,5 @@
 # Customer & Subscriptions Service
-### Farm2Fork Platform — Delivery Team
+### Farm2Fork Platform 
 
 ---
 

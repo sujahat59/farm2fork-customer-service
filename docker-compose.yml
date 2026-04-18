@@ -14,3 +14,6 @@ services:
       - ORDER_ORCHESTRATION_URL=${ORDER_ORCHESTRATION_URL:-http://localhost:3002}
     volumes:
       - db-data:/app/prisma
+
+volumes:
+  db-data:git add .

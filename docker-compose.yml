@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    container_name: farm2fork-customer-service
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:./dev.db
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET}
+      - DELIVERY_REDIRECT_URL=${DELIVERY_REDIRECT_URL:-http://localhost:4000/driver/dashboard}
+      - DELIVERY_EXECUTION_URL=${DELIVERY_EXECUTION_URL:-http://localhost:3003}
+      - ORDER_ORCHESTRATION_URL=${ORDER_ORCHESTRATION_URL:-http://localhost:3002}
+    volumes:
+      - db-data:/app/prisma

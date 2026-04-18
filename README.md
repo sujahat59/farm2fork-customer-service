@@ -210,7 +210,18 @@ Box contents are seasonal and randomized — customers select a box type, not sp
 | GET | /customers/:id/billing | Billing history — filterable by status |
 | GET | /customers/:id/billing/total | Total amount spent and payment count |
 | PATCH | /billing/:id/status | Update billing status — triggers loyalty points on paid |
-| POST | /billing/manifest | Receive billing manifest from Order Orchestration |
+| POST | /billing/manifest | Receive and process billing confirmation from Order Orchestration |
+
+### Billing Manifest — Request Body
+
+`POST /billing/manifest` accepts the following:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| orderId | string | ✅ | The order ID from Order Orchestration |
+| amount | number | ✅ | Payment amount |
+| customerId | string | one of | Required for one-time purchases |
+| subscriptionId | string | one of | Required for subscription payments |
 
 ### Addresses
 
@@ -239,7 +250,7 @@ Box contents are seasonal and randomized — customers select a box type, not sp
 |------|----------|---------|
 | Order Orchestration | GET /auth/verify | Validate customer token |
 | Order Orchestration | GET /customers/:id | Get customer profile |
-| Order Orchestration | POST /billing/manifest | Send billing confirmation for us to process |
+| Order Orchestration | POST /billing/manifest | Send payment confirmation for us to record |
 | Delivery Execution | GET /auth/verify | Validate customer or driver token |
 | Delivery Execution | GET /subscriptions/:id | Get subscription and delivery address for routing |
 
@@ -273,8 +284,6 @@ Field: file (CSV)
 
 Required CSV columns: `name`, `email`, `password`, `phone` (optional)
 
-> ⏳ Waiting on Delivery Execution team to send the CSV file.
-
 ---
 
 ## Environment Variables
@@ -302,6 +311,19 @@ ORDER_ORCHESTRATION_URL=http://localhost:3002
 | Loyalty | /loyalty.html | Points balance, tier progress, rewards |
 | Account | /account.html | Profile settings and delivery addresses |
 | Driver Portal | /driver.html | Driver redirect handler |
+
+---
+
+## Deployment
+
+The service is deployed and live on the test server:
+
+```
+Base URL: http://159.203.16.186:3000
+Swagger:  http://159.203.16.186:3000/docs
+```
+
+CI/CD is configured via GitHub webhook — every push to `main` automatically deploys to the test server.
 
 ---
 

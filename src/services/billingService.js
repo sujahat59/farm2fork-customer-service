@@ -21,7 +21,6 @@ async function updateBillingStatus(id, status) {
 
   const billing = await prisma.billingRecord.update({ where: { id }, data });
 
-  // Trigger loyalty points when billing is paid
   if (status === 'paid') {
     const points = Math.floor(billing.amount);
     await loyaltyService.addPoints(billing.userId, points, `Payment of $${billing.amount} for subscription`);
@@ -31,28 +30,72 @@ async function updateBillingStatus(id, status) {
 }
 
 // Receive billing manifest from Order Orchestration
-// They send us order details, we confirm if billing passed or failed
-async function processBillingManifest({ subscriptionId, orderId, amount }) {
+// Handles both subscription billing and one-time purchase billing
+async function processBillingManifest({ customerId, subscriptionId, orderId, amount }) {
   try {
-    const subscription = await prisma.subscription.findUnique({
-      where: { id: subscriptionId }
-    });
+    // Resolve userId
+    let userId = customerId;
 
-    if (!subscription) return { success: false, reason: 'Subscription not found' };
-    if (subscription.status !== 'active') return { success: false, reason: 'Subscription not active' };
+    if (!userId && subscriptionId) {
+      const subscription = await prisma.subscription.findUnique({
+        where: { id: subscriptionId }
+      });
+      if (!subscription) return { success: false, reason: 'Subscription not found' };
+      if (subscription.status !== 'active') return { success: false, reason: 'Subscription not active' };
+      userId = subscription.userId;
+    }
 
-    // Find the latest pending billing record for this subscription
-    const billing = await prisma.billingRecord.findFirst({
-      where: { subscriptionId, status: 'pending' },
-      orderBy: { createdAt: 'desc' }
-    });
+    // Validate user exists
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return { success: false, reason: 'Customer not found' };
 
-    if (!billing) return { success: false, reason: 'No pending billing record found' };
+    let billing;
 
-    // Mark as paid
-    await updateBillingStatus(billing.id, 'paid');
+    if (subscriptionId) {
+      // Subscription billing — find existing pending record and mark paid
+      const pending = await prisma.billingRecord.findFirst({
+        where: { subscriptionId, status: 'pending' },
+        orderBy: { createdAt: 'desc' }
+      });
 
-    return { success: true, billingId: billing.id, orderId };
+      if (pending) {
+        billing = await updateBillingStatus(pending.id, 'paid');
+      } else {
+        // No pending record — create and mark paid directly
+        billing = await prisma.billingRecord.create({
+          data: {
+            userId,
+            subscriptionId,
+            amount: amount || 0,
+            status: 'paid',
+            paidAt: new Date(),
+            invoiceRef: 'INV-' + Date.now(),
+          }
+        });
+        const points = Math.floor(amount || 0);
+        if (points > 0) {
+          await loyaltyService.addPoints(userId, points, `Payment of $${amount} for subscription`);
+        }
+      }
+    } else {
+      // One-time purchase billing — create a new billing record
+      billing = await prisma.billingRecord.create({
+        data: {
+          userId,
+          subscriptionId: null,
+          amount: amount || 0,
+          status: 'paid',
+          paidAt: new Date(),
+          invoiceRef: 'INV-' + Date.now(),
+        }
+      });
+      const points = Math.floor(amount || 0);
+      if (points > 0) {
+        await loyaltyService.addPoints(userId, points, `Payment of $${amount} for order ${orderId}`);
+      }
+    }
+
+    return { success: true, billingId: billing.id, orderId, invoiceRef: billing.invoiceRef };
   } catch (err) {
     return { success: false, reason: err.message };
   }

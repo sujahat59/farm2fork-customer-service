@@ -23,11 +23,16 @@ async function updateBillingStatus(req, res, next) {
 
 async function processBillingManifest(req, res, next) {
   try {
-    const { subscriptionId, orderId, amount } = req.body;
-    if (!subscriptionId || !orderId) {
-      return res.status(400).json({ error: 'subscriptionId and orderId are required' });
+    const { customerId, subscriptionId, orderId, amount } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ error: 'orderId is required' });
     }
-    const result = await billingService.processBillingManifest({ subscriptionId, orderId, amount });
+    if (!customerId && !subscriptionId) {
+      return res.status(400).json({ error: 'customerId or subscriptionId is required' });
+    }
+
+    const result = await billingService.processBillingManifest({ customerId, subscriptionId, orderId, amount });
     res.json(result);
   } catch (err) { next(err); }
 }

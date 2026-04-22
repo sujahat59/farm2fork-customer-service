@@ -28,10 +28,7 @@
     } else {
       localStorage.setItem('token', token);
       setFarmerState('happy');
-      // Swap URL once Delivery team confirms
-      // window.location.href = `http://delivery-team-url/dashboard?token=${token}`;
-      document.getElementById('statusMsg').textContent =
-        'Token received. Waiting for Delivery team redirect URL.';
+      window.location.href = `http://147.182.145.77:3000/?token=${token}`;
     }
 
     function logout() {

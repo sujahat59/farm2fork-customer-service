@@ -76,7 +76,7 @@ async function createOrder({ customerId, subscriptionId, deliveryAddressId }) {
 // Get delivery status for a given order
 async function getDeliveryStatus(orderId) {
   try {
-    return await get(`${SERVICES.deliveryExecution}/deliveries/${orderId}/status`);
+    return await get(`${SERVICES.deliveryExecution}/api/delivery-status/${orderId}`);
   } catch (err) {
     console.error('[Integration] Delivery Execution unreachable:', err.message);
     return { error: 'Delivery Execution service unavailable', status: 'unknown' };

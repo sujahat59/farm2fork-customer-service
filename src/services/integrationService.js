@@ -1,17 +1,16 @@
+const https = require('https');
 const http = require('http');
 
-// Base URLs for other team services
-// These will be updated once other teams confirm their ports
 const SERVICES = {
   productInventory:   process.env.PRODUCT_INVENTORY_URL   || 'http://localhost:3001',
-  orderOrchestration: process.env.ORDER_ORCHESTRATION_URL || 'http://localhost:3002',
+  orderOrchestration: process.env.ORDER_ORCHESTRATION_URL || 'https://forgotten-thats-fill-chairman.trycloudflare.com',
   deliveryExecution:  process.env.DELIVERY_EXECUTION_URL  || 'http://localhost:3003',
 };
 
-// Generic HTTP GET helper
 async function get(url) {
+  const lib = url.startsWith('https') ? https : http;
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
+    lib.get(url, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -22,17 +21,19 @@ async function get(url) {
   });
 }
 
-// Generic HTTP POST helper
 async function post(url, body) {
+  const lib = url.startsWith('https') ? https : http;
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
+    const urlObj = new URL(url);
     const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (url.startsWith('https') ? 443 : 80),
+      path: urlObj.pathname,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
     };
-    const [base, path] = url.split(/(?=\/[^/])/);
-    const urlObj = new URL(url);
-    const req = http.request({ hostname: urlObj.hostname, port: urlObj.port, path: urlObj.pathname, ...options }, (res) => {
+    const req = lib.request(options, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -46,8 +47,6 @@ async function post(url, body) {
   });
 }
 
-// ── Calls to Product & Inventory ─────────────────────────────
-// Fetch what's available in the Farm Box this week
 async function getAvailableProducts() {
   try {
     return await get(`${SERVICES.productInventory}/products/available`);
@@ -57,8 +56,6 @@ async function getAvailableProducts() {
   }
 }
 
-// ── Calls to Order Orchestration ─────────────────────────────
-// Trigger a new order when a subscription renews
 async function createOrder({ customerId, subscriptionId, deliveryAddressId }) {
   try {
     return await post(`${SERVICES.orderOrchestration}/orders`, {
@@ -72,8 +69,6 @@ async function createOrder({ customerId, subscriptionId, deliveryAddressId }) {
   }
 }
 
-// ── Calls to Delivery Execution ──────────────────────────────
-// Get delivery status for a given order
 async function getDeliveryStatus(orderId) {
   try {
     return await get(`${SERVICES.deliveryExecution}/api/delivery-status/${orderId}`);

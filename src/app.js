@@ -129,6 +129,10 @@ app.use('/billing',       require('./routes/billingRoutes'));
 app.use('/addresses',     require('./routes/addressRoutes'));
 app.use('/auth',          require('./routes/authRoutes'));
 
+app.get('/', (req, res) => {
+  res.redirect('/login.html');
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'customer-subscriptions', version: '2.0.0' });
 });

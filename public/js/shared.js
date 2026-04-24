@@ -1,4 +1,4 @@
-const API = 'http://159.203.16.186:3000';
+const API = 'https://farm2fork-customer-service.onrender.com';
 const token = localStorage.getItem('token');
 const user  = JSON.parse(localStorage.getItem('user') || '{}');
 if (!token) window.location.href = 'login.html';

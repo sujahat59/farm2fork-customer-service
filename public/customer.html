@@ -84,7 +84,7 @@ async function load() {
 
 function goToProducts() {
   const token = localStorage.getItem('token');
-  const OO_PRODUCTS_URL = 'https://forgotten-thats-fill-chairman.trycloudflare.com/products';
+  const OO_PRODUCTS_URL = 'http://142.93.152.32:6767/products';
   window.location.href = OO_PRODUCTS_URL + '?token=' + encodeURIComponent(token);
 }
 

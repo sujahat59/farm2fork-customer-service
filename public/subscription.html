@@ -154,16 +154,30 @@ async function load() {
       const sres = await fetch(`${API}/subscriptions/${subId}`, {headers});
       currentSub = await sres.json();
       document.getElementById('currentPlanWrap').innerHTML = `
-        <div class="current-plan-card">
-          <div class="icon-box" style="margin:0;flex-shrink:0"><svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
-          <div style="flex:1"><div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#5a7a5a">Current Plan</div><div style="font-size:18px;font-weight:700;color:#1a3a1a">${currentSub.boxType?.charAt(0).toUpperCase()+currentSub.boxType?.slice(1)} Box — ${currentSub.planDuration}</div></div>
-          <div style="text-align:right"><div style="font-size:22px;font-weight:700;color:#2d5a2d">$${currentSub.billingRecords?.[0]?.amount?.toFixed(2)||'—'}/cycle</div><div style="font-size:13px;color:#5a7a5a">Next: ${currentSub.nextBillingDate?new Date(currentSub.nextBillingDate).toLocaleDateString():'—'}</div></div>
-          <span class="pill pill-green" style="flex-shrink:0">${currentSub.status}</span>
-        </div>`;
+  <div class="current-plan-card">
+    <div class="icon-box" style="margin:0;flex-shrink:0"><svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+    <div style="flex:1"><div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#5a7a5a">Current Plan</div><div style="font-size:18px;font-weight:700;color:#1a3a1a">${currentSub.boxType?.charAt(0).toUpperCase()+currentSub.boxType?.slice(1)} Box — ${currentSub.planDuration}</div></div>
+    <div style="text-align:right"><div style="font-size:22px;font-weight:700;color:#2d5a2d">$${currentSub.billingRecords?.[0]?.amount?.toFixed(2)||'—'}/cycle</div><div style="font-size:13px;color:#5a7a5a">Next: ${currentSub.nextBillingDate?new Date(currentSub.nextBillingDate).toLocaleDateString():'—'}</div></div>
+    <span class="pill pill-green" style="flex-shrink:0">${currentSub.status}</span>
+    <button onclick="cancelSubscription('${currentSub.id}')" style="background:rgba(165,42,42,0.1);color:#a52a2a;border:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">Cancel</button>
+  </div>`;
     }
   } catch(e){}
   renderPlans();
 }
+
+async function cancelSubscription(subId) {
+  if (!confirm('Are you sure you want to cancel your subscription?')) return;
+  try {
+    const res = await fetch(`${API}/subscriptions/${subId}/status`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ status: 'cancelled' })
+    });
+    if (res.ok) { alert('Subscription cancelled.'); location.reload(); }
+    else alert('Failed to cancel');
+  } catch(e) { alert('Cannot connect to server'); }
+}
+
 load();
 </script>
 </body>

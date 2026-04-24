@@ -83,9 +83,9 @@ async function load() {
 }
 
 function goToProducts() {
-  // Replace with OO's actual URL when they confirm
+  const token = localStorage.getItem('token');
   const OO_PRODUCTS_URL = 'https://forgotten-thats-fill-chairman.trycloudflare.com/products';
-  window.location.href = OO_PRODUCTS_URL;
+  window.location.href = OO_PRODUCTS_URL + '?token=' + encodeURIComponent(token);
 }
 
 load();

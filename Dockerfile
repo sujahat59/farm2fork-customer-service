@@ -10,8 +10,6 @@ RUN npx prisma generate
 
 COPY . .
 
-RUN npx prisma migrate deploy
-
 EXPOSE 3000
 
-CMD ["node", "src/server.js"]
+CMD npx prisma migrate deploy && node src/server.js
